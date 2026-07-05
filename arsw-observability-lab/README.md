@@ -6,10 +6,18 @@ Prometheus, centralizacion de logs con Loki y visualizacion con Grafana.
 
 ## Ejercicio 1: App Spring Boot instrumentada
 
-### Decision tecnica: Java 17 -> 21
+### Punto 6 — Estructura del proyecto
 
-La guia (secciones 5 y 7) pide Java 17 como version minima, y el codigo del
-`OrderController` (seccion 9) usa:
+Estructura creada segun la guia dentro de `arsw-observability-lab/`:
+`docker-compose.yml`, `prometheus/prometheus.yml`, `loki/loki-config.yml`,
+`promtail/promtail-config.yml` y `app/observability-demo`.
+
+### Punto 7 — Creacion de la aplicacion Spring Boot
+
+**Decision tecnica: Java 17 -> 21**
+
+La guia (secciones 5 y 7) pide Java 17 como version minima, pero el codigo
+del `OrderController` (punto 9) usa:
 
 ```java
 Thread.sleep(Duration.ofMillis(delay));
@@ -25,7 +33,9 @@ Se decidio actualizar `java.version` a **21** (LTS) en `pom.xml` para poder
 usar el codigo del PDF sin modificarlo, en vez de reescribir esa linea como
 `Thread.sleep(delay)`.
 
-### Decision tecnica: orders_created_total se expone como orders_total
+### Punto 9 — Controlador de prueba (OrderController)
+
+**Decision tecnica: orders_created_total se expone como orders_total**
 
 El proyecto resuelve `micrometer-registry-prometheus 1.15.1`, que usa
 internamente el cliente oficial nuevo de Prometheus
@@ -60,7 +70,9 @@ consultas PromQL de este laboratorio (Prometheus, paneles de Grafana y
 alertas), en lugar de `orders_created_total` como aparece literalmente en el
 PDF.
 
-### Concepto: metricas automaticas vs. metricas de negocio
+### Punto 11 — Prueba inicial de la aplicacion
+
+**Concepto: metricas automaticas vs. metricas de negocio**
 
 Al consultar `curl http://localhost:8081/actuator/prometheus` aparecen dos
 tipos de metricas, con un origen distinto:
@@ -81,8 +93,8 @@ codigo adicional):**
 **De negocio (las escribimos a mano en `OrderController` con
 `Counter.builder(...).increment()`):**
 
-- `orders_total` (nombre en codigo: `orders_created_total`, ver seccion
-  anterior) — cuenta pedidos creados exitosamente.
+- `orders_total` (nombre en codigo: `orders_created_total`, ver Punto 9) —
+  cuenta pedidos creados exitosamente.
 - `orders_failed_total` — cuenta errores simulados en `/orders/simulate-error`.
 
 Estas dos ultimas arrancan en `0.0` porque solo se incrementan cuando ocurre
@@ -90,7 +102,7 @@ el evento de negocio correspondiente (`POST /orders` o
 `GET /orders/simulate-error`), a diferencia de las automaticas que ya
 reflejan actividad desde que la app arranca.
 
-### Decision tecnica: adaptar los comandos curl de la guia a PowerShell
+**Decision tecnica: adaptar los comandos curl de la guia a PowerShell**
 
 Los comandos `curl` de las secciones 11 y 12 estan escritos para una shell
 POSIX (bash/zsh). Ejecutados tal cual en PowerShell (Windows) fallan o se
@@ -114,7 +126,9 @@ comportan distinto por dos razones:
    -d '{\"customerId\":\"CUS-01\",\"total\":120000}'
    ```
 
-Comandos de la seccion 12 adaptados y usados en este laboratorio:
+### Punto 12 — Generacion de trafico
+
+Comandos de la seccion 12 adaptados a PowerShell y usados en este laboratorio:
 
 ```powershell
 curl.exe -X POST http://localhost:8081/orders -H "Content-Type: application/json" -d '{\"customerId\":\"CUS-01\",\"total\":120000}'
