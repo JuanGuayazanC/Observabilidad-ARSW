@@ -136,3 +136,25 @@ curl.exe http://localhost:8081/orders/ORD-1001
 curl.exe http://localhost:8081/orders/simulate-latency
 curl.exe http://localhost:8081/orders/simulate-error
 ```
+
+### Punto 15 — Configuracion de Promtail
+
+**Limitacion conocida: Promtail no captura los logs de la app**
+
+`promtail-config.yml` esta configurado para leer `/var/log/*.log` dentro de
+su contenedor (montado desde el host via `/var/log:/var/log` en
+`docker-compose.yml`). La app Spring Boot corre **fuera de Docker**,
+directamente en Windows, y solo escribe sus logs a **consola** (no hay
+`logging.file.name` configurado en `application.yml`).
+
+Consecuencia: Promtail nunca recibe una sola linea de log de
+`OrderController` ni de `GlobalExceptionHandler`. Las busquedas de la
+seccion 23 (`{job="docker"} |= "Pedido"`, `|= "ERROR"`, `|= "latencia"`) no
+van a encontrar contenido de esta app con la configuracion actual.
+
+Se decidio **no corregir esto** y seguir la guia tal cual, documentando la
+limitacion aqui. Para que funcionara de verdad haria falta: (1) agregar
+`logging.file.name` en `application.yml` para que la app tambien escriba a
+un archivo, y (2) ajustar el volumen de Promtail en `docker-compose.yml`
+para apuntar a la carpeta de ese archivo en vez del generico `/var/log`
+del host.
