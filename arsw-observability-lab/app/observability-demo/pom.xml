@@ -45,9 +45,6 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
-        <configuration>
-          <jvmArguments>-Xmx256m -XX:+UseSerialGC</jvmArguments>
-        </configuration>
       </plugin>
     </plugins>
   </build>
