@@ -89,3 +89,36 @@ Estas dos ultimas arrancan en `0.0` porque solo se incrementan cuando ocurre
 el evento de negocio correspondiente (`POST /orders` o
 `GET /orders/simulate-error`), a diferencia de las automaticas que ya
 reflejan actividad desde que la app arranca.
+
+### Decision tecnica: adaptar los comandos curl de la guia a PowerShell
+
+Los comandos `curl` de las secciones 11 y 12 estan escritos para una shell
+POSIX (bash/zsh). Ejecutados tal cual en PowerShell (Windows) fallan o se
+comportan distinto por dos razones:
+
+1. **`curl` es un alias de `Invoke-WebRequest` en PowerShell**, no el curl
+   real. Devuelve un objeto de PowerShell (con `StatusCode`, `Headers`,
+   `Content`, etc.) en vez de solo el cuerpo de la respuesta, y ademas
+   muestra una advertencia de seguridad ("riesgo de ejecucion de script")
+   antes de cada llamada porque intenta parsear la respuesta como HTML.
+   Se soluciona invocando el curl real con `curl.exe` en vez de `curl`.
+2. **El comillado de JSON en `-d` es distinto.** En bash, la guia usa
+   comillas simples para envolver todo el JSON y comillas dobles adentro:
+   ```bash
+   -d '{"customerId":"CUS-01","total":120000}'
+   ```
+   En PowerShell, las comillas simples no funcionan igual para pasar el
+   argumento a un ejecutable externo como `curl.exe`; hace falta escapar
+   las comillas dobles internas con `\`:
+   ```powershell
+   -d '{\"customerId\":\"CUS-01\",\"total\":120000}'
+   ```
+
+Comandos de la seccion 12 adaptados y usados en este laboratorio:
+
+```powershell
+curl.exe -X POST http://localhost:8081/orders -H "Content-Type: application/json" -d '{\"customerId\":\"CUS-01\",\"total\":120000}'
+curl.exe http://localhost:8081/orders/ORD-1001
+curl.exe http://localhost:8081/orders/simulate-latency
+curl.exe http://localhost:8081/orders/simulate-error
+```
