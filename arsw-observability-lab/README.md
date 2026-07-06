@@ -395,3 +395,19 @@ Diagnostico completo usando el Incidente 1 (aumento de errores) como caso:
   de **tasa anormal de creacion de pedidos** (ej.
   `rate(orders_total[1m])` por encima de un umbral de negocio esperado),
   para detectar picos sospechosos sin depender solo del juicio manual.
+
+### Punto 29 — Actividad 2: diseno de dashboard
+
+Documentacion de los 8 paneles del dashboard "ARSW - Observabilidad de
+Microservicios" (Punto 22):
+
+| Panel | Fuente | Consulta | Que permite analizar | Decision tecnica que soporta |
+|---|---|---|---|---|
+| Estado del servicio | Prometheus | `up{job="observability-demo"}` | Si la app esta disponible ahora mismo | Si esta en 0, decide si hay que reiniciar el servicio o escalar de inmediato |
+| Solicitudes HTTP por endpoint | Prometheus | `sum by (uri,method,status) (rate(http_server_requests_seconds_count[1m]))` | Que endpoints reciben mas trafico y con que status | Donde priorizar optimizacion o detectar trafico anomalo por endpoint |
+| Latencia promedio | Prometheus | `sum(rate(http_server_requests_seconds_sum[1m]))/sum(rate(http_server_requests_seconds_count[1m]))` | Si el tiempo de respuesta general esta subiendo | Si hay que investigar dependencias lentas (DB, servicios externos) |
+| Errores HTTP 500 | Prometheus | `sum(rate(http_server_requests_seconds_count{status="500"}[1m]))` | Tasa de errores internos en tiempo real | Si hay que hacer rollback de un despliegue reciente o investigar un bug |
+| Pedidos creados | Prometheus | `orders_total` | Volumen de actividad de negocio real | Si el crecimiento de negocio requiere escalar infraestructura |
+| Pedidos fallidos | Prometheus | `orders_failed_total` | Cuantas transacciones de negocio no se completaron | Si hay que revisar el flujo de checkout/pagos |
+| Memoria usada por JVM | Prometheus | `sum(jvm_memory_used_bytes{application="observability-demo"})` | Consumo de memoria y patrones de GC | Si hay fuga de memoria o si hay que ajustar el heap |
+| Uso de CPU del proceso | Prometheus | `process_cpu_usage{application="observability-demo"}` | Carga de CPU del proceso Java | Si hay que escalar horizontalmente o revisar codigo ineficiente |
