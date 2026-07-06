@@ -158,3 +158,20 @@ limitacion aqui. Para que funcionara de verdad haria falta: (1) agregar
 un archivo, y (2) ajustar el volumen de Promtail en `docker-compose.yml`
 para apuntar a la carpeta de ese archivo en vez del generico `/var/log`
 del host.
+
+### Punto 23 — Exploracion de logs con Loki
+
+**Verificacion practica de la limitacion del Punto 15**
+
+En Grafana → Explore → data source Loki, la consulta base de la guia:
+
+```
+{job="docker"}
+```
+
+devuelve **"No logs found."** Confirma en la practica (no solo en teoria) que
+Promtail no tiene ningun log bajo esa etiqueta — ni de la app ni de otro
+origen. Como la consulta base ya esta vacia, las variantes de la guia
+(`|= "ERROR"`, `|= "Pedido"`, `|= "latencia"`) tampoco devuelven resultados;
+son solo filtros adicionales sobre un conjunto ya vacio. No se ejecutaron
+las tres por ser redundante.
