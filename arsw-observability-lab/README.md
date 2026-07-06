@@ -175,3 +175,34 @@ origen. Como la consulta base ya esta vacia, las variantes de la guia
 (`|= "ERROR"`, `|= "Pedido"`, `|= "latencia"`) tampoco devuelven resultados;
 son solo filtros adicionales sobre un conjunto ya vacio. No se ejecutaron
 las tres por ser redundante.
+
+### Punto 24 — Simulacion de incidentes
+
+#### Incidente 1: aumento de errores
+
+Se ejecuto `curl.exe http://localhost:8081/orders/simulate-error` 5 veces
+seguidas.
+
+**¿Que endpoint genero errores?**
+`/orders/simulate-error`.
+*Fuente: la propia terminal donde se ejecutaron los `curl.exe`, cada uno
+devolviendo `{"status":500,...}`.*
+
+**¿Que metrica permitio detectarlo?**
+El panel **"Errores HTTP 500"** del dashboard
+(`sum(rate(http_server_requests_seconds_count{status="500"}[1m]))`), que
+mostro un pico de ~0.11-0.12 solicitudes/segundo coincidiendo con las 5
+llamadas, y el contador de negocio `orders_failed_total`, que subio a
+**7.0** (1 del trafico inicial de la seccion 12 + 1 de una verificacion
+previa + 5 de este incidente).
+*Fuente: captura del panel en Grafana + verificacion directa con
+`curl http://localhost:8081/actuator/prometheus | grep orders_failed_total`.*
+
+**¿Que log permitio explicar el error?**
+El log `logger.error("Error simulado en el servicio de pedidos")` de
+`OrderController.simulateError()`. Con la limitacion documentada en el
+Punto 15, este log **no aparece en Loki** — solo es visible en la consola
+donde corre `mvn spring-boot:run`.
+*Fuente: lectura directa del codigo fuente de
+`OrderController.java` (metodo `simulateError`), cruzado con la limitacion
+de Promtail confirmada en el Punto 23.*
