@@ -297,3 +297,38 @@ arquitectura con mas microservicios, entre distintos servicios. Tambien
 ayudaria loguear en formato estructurado (JSON) en vez de texto plano
 interpolado, para poder filtrar por campos como `orderId` o `customerId`
 directamente en Loki sin depender de busqueda de texto libre.
+
+### Punto 27 — Diseno de alertas
+
+Se crearon las 3 alertas de la guia en Grafana (Alerting → Alert rules),
+en la carpeta `ARSW-Observabilidad`:
+
+| Alerta | Consulta | Pending period |
+|---|---|---|
+| Servicio caido | `up{job="observability-demo"}` IS BELOW 1 | 5m |
+| Errores HTTP 500 | `sum(rate(http_server_requests_seconds_count{status="500"}[1m]))` IS ABOVE 0 | 2m |
+| Latencia elevada | `sum(rate(http_server_requests_seconds_sum[1m])) / sum(rate(http_server_requests_seconds_count[1m]))` IS ABOVE 1 | 2m |
+
+**Concepto: por que el "pending period" evita el alert fatigue**
+
+Si una alerta dispara de inmediato (`pending period = 0s`) ante un solo
+evento aislado que se autorresuelve (ej. un usuario que provoca un error
+500 una sola vez), el equipo empieza a recibir notificaciones por cosas
+que no son problemas reales. Con el tiempo, esto lleva a que las alertas
+se ignoren por costumbre ("alert fatigue"), y el dia que suene una alerta
+que si importa, nadie le presta atencion. Por eso se les dio un margen de
+2-5 minutos: la condicion debe sostenerse, no solo ocurrir una vez.
+
+**Verificacion:** justo despues de crear las alertas 2 y 3, Grafana las
+mostro en estado `Pending` (residuo de la primera evaluacion, que aun
+coincidio con el trafico de los incidentes recien simulados). Al consultar
+directamente Prometheus en ese momento:
+
+```
+sum(rate(http_server_requests_seconds_count{status="500"}[1m])) = 0
+sum(rate(http_server_requests_seconds_sum[1m])) / sum(rate(http_server_requests_seconds_count[1m])) = 0.127
+```
+
+ambas por debajo de sus umbrales, confirmando que el estado `Pending`
+era transitorio y se esperaba que volviera a `Normal` en la siguiente
+evaluacion — comportamiento correcto del `pending period` configurado.
