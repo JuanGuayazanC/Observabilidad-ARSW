@@ -183,6 +183,16 @@ las tres por ser redundante.
 Se ejecuto `curl.exe http://localhost:8081/orders/simulate-error` 5 veces
 seguidas.
 
+**Observaciones:**
+- **Panel de errores HTTP 500:** pico de ~0.11-0.12 solicitudes/segundo
+  coincidiendo con las 5 llamadas. *Fuente: captura del panel en Grafana.*
+- **Contador `orders_failed_total`:** subio a **7.0**. *Fuente:
+  `curl http://localhost:8081/actuator/prometheus | grep orders_failed_total`.*
+- **Logs con nivel ERROR:** existe (`logger.error(...)` en
+  `OrderController.simulateError()`), pero **no visible en Loki** por la
+  limitacion del Punto 15 — solo en la consola de `mvn spring-boot:run`.
+  *Fuente: codigo fuente + limitacion confirmada en el Punto 23.*
+
 **¿Que endpoint genero errores?**
 `/orders/simulate-error`.
 *Fuente: la propia terminal donde se ejecutaron los `curl.exe`, cada uno
@@ -211,6 +221,17 @@ de Promtail confirmada en el Punto 23.*
 
 Se ejecuto `curl.exe http://localhost:8081/orders/simulate-latency` dos
 veces seguidas (delays de 1399ms y 812ms segun la respuesta del endpoint).
+
+**Observaciones:**
+- **Panel de latencia promedio:** subio de una linea base de ~0.1-0.2s
+  hasta casi **1.0s** justo despues de las dos llamadas. *Fuente: captura
+  del panel en Grafana.*
+- **Logs con advertencias:** existe (`logger.warn(...)` en
+  `OrderController.simulateLatency()`), pero tampoco visible en Loki por la
+  misma limitacion del Punto 15. *Fuente: codigo fuente.*
+- **Tiempo de respuesta del cliente:** el propio JSON de respuesta expuso
+  el retraso real aplicado — `{"delayMs":1399,...}` y `{"delayMs":812,...}`.
+  *Fuente: salida directa de los `curl.exe` en la terminal.*
 
 **¿Que metrica cambio?**
 La latencia promedio del panel **"Latencia promedio"**
