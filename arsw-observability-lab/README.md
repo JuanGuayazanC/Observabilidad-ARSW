@@ -206,3 +206,29 @@ donde corre `mvn spring-boot:run`.
 *Fuente: lectura directa del codigo fuente de
 `OrderController.java` (metodo `simulateError`), cruzado con la limitacion
 de Promtail confirmada en el Punto 23.*
+
+#### Incidente 2: aumento de latencia
+
+Se ejecuto `curl.exe http://localhost:8081/orders/simulate-latency` dos
+veces seguidas (delays de 1399ms y 812ms segun la respuesta del endpoint).
+
+**¿Que metrica cambio?**
+La latencia promedio del panel **"Latencia promedio"**
+(`sum(rate(http_server_requests_seconds_sum[1m])) / sum(rate(http_server_requests_seconds_count[1m]))`),
+que subio de una linea base de ~0.1-0.2s hasta casi **1.0s** justo despues
+de las dos llamadas.
+*Fuente: captura del panel en Grafana, correlacionando el pico al final de
+la grafica con la hora de los `curl.exe` ejecutados en la terminal.*
+
+**¿Que endpoint parece mas lento?**
+`/orders/simulate-latency`.
+*Fuente: es el unico endpoint llamado en este incidente, y su propia
+respuesta JSON expone el delay aplicado (`delayMs`).*
+
+**¿Que log confirma la latencia artificial?**
+`logger.warn("Simulando latencia artificial de {} ms", delay)` en
+`OrderController.simulateLatency()`. Igual que en el Incidente 1, este log
+no llega a Loki por la limitacion de Promtail — solo se ve en la consola
+de `mvn spring-boot:run`.
+*Fuente: lectura del codigo fuente de `OrderController.java` (metodo
+`simulateLatency`).*
