@@ -159,6 +159,38 @@ un archivo, y (2) ajustar el volumen de Promtail en `docker-compose.yml`
 para apuntar a la carpeta de ese archivo en vez del generico `/var/log`
 del host.
 
+### Punto 17 — Verificacion de Prometheus Targets
+
+El target `observability-demo` aparece `UP` en Prometheus
+(`Status → Targets`), scrapeando `http://host.docker.internal:8081/actuator/prometheus`
+sin errores.
+
+![Prometheus target UP](evidence/punto17-prometheus-target-up.png)
+
+### Punto 18 — Consultas basicas en Prometheus
+
+Las 5 consultas de la guia, verificadas directamente en la UI de Prometheus:
+
+![Consulta up](evidence/punto18-query-up.png)
+![Consulta http_server_requests_seconds_count](evidence/punto18-query-http-requests.png)
+![Consulta jvm_memory_used_bytes](evidence/punto18-query-jvm-memory.png)
+![Consulta orders_total](evidence/punto18-query-orders-total.png)
+![Consulta orders_failed_total](evidence/punto18-query-orders-failed-total.png)
+
+### Punto 19-21 — Ingreso a Grafana y fuentes de datos
+
+Prometheus y Loki configurados y verificados como data sources en Grafana:
+
+![Prometheus data source OK](evidence/punto20-prometheus-datasource-ok.png)
+![Loki data source OK](evidence/punto21-loki-datasource-ok.png)
+
+### Punto 22 — Construccion del dashboard
+
+Dashboard **"ARSW - Observabilidad de Microservicios"** con los 8 paneles
+documentados en el Punto 29, con datos reales:
+
+![Dashboard completo con 8 paneles](evidence/punto22-dashboard-completo.png)
+
 ### Punto 23 — Exploracion de logs con Loki
 
 **Verificacion practica de la limitacion del Punto 15**
@@ -176,6 +208,8 @@ origen. Como la consulta base ya esta vacia, las variantes de la guia
 son solo filtros adicionales sobre un conjunto ya vacio. No se ejecutaron
 las tres por ser redundante.
 
+![Loki no encuentra logs](evidence/punto23-loki-no-logs-found.png)
+
 ### Punto 24 — Simulacion de incidentes
 
 #### Incidente 1: aumento de errores
@@ -192,6 +226,8 @@ seguidas.
   `OrderController.simulateError()`), pero **no visible en Loki** por la
   limitacion del Punto 15 — solo en la consola de `mvn spring-boot:run`.
   *Fuente: codigo fuente + limitacion confirmada en el Punto 23.*
+
+![Panel Errores HTTP 500 durante el incidente 1](evidence/punto24-incidente1-errores-500.png)
 
 **¿Que endpoint genero errores?**
 `/orders/simulate-error`.
@@ -233,6 +269,9 @@ veces seguidas (delays de 1399ms y 812ms segun la respuesta del endpoint).
   el retraso real aplicado — `{"delayMs":1399,...}` y `{"delayMs":812,...}`.
   *Fuente: salida directa de los `curl.exe` en la terminal.*
 
+![Panel Latencia promedio durante el incidente 2](evidence/punto24-incidente2-latencia-promedio.png)
+![Panel Solicitudes HTTP por endpoint mostrando el pico de simulate-latency](evidence/punto24-incidente2-solicitudes-http.png)
+
 **¿Que metrica cambio?**
 La latencia promedio del panel **"Latencia promedio"**
 (`sum(rate(http_server_requests_seconds_sum[1m])) / sum(rate(http_server_requests_seconds_count[1m]))`),
@@ -267,6 +306,9 @@ seguidas.
   que muestra `http_server_requests_seconds_count{...method="POST",uri="/orders"} 14`.*
 - **Panel de pedidos creados:** subio de 1 a **14**. *Fuente: captura del
   panel "Pedidos creados" en Grafana.*
+
+![Panel Pedidos creados durante el incidente 3](evidence/punto24-incidente3-pedidos-creados.png)
+
 - **Logs de creacion de pedidos:** existen
   (`logger.info("Pedido creado correctamente. orderId={}", orderId)` en
   `OrderController.createOrder()`), pero no visibles en Loki por la misma
@@ -332,6 +374,9 @@ sum(rate(http_server_requests_seconds_sum[1m])) / sum(rate(http_server_requests_
 ambas por debajo de sus umbrales, confirmando que el estado `Pending`
 era transitorio y se esperaba que volviera a `Normal` en la siguiente
 evaluacion — comportamiento correcto del `pending period` configurado.
+
+![Detalle de la alerta Errores HTTP 500](evidence/punto27-alerta-errores-500-detalle.png)
+![Las 3 alertas creadas en Grafana](evidence/punto27-alertas-3-creadas.png)
 
 ### Punto 28 — Actividad 1: diagnostico de observabilidad
 
