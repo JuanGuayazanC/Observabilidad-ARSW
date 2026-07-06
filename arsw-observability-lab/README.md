@@ -358,3 +358,40 @@ Diagnostico completo usando el Incidente 1 (aumento de errores) como caso:
   arreglo, la metrica lo confirma objetivamente.
 - **Alerta que deberia existir:** ya existe — la alerta **"Errores HTTP 500"**
   creada en el Punto 27.
+
+**Incidente 2 (aumento de latencia):**
+
+- **Posible causa (en un caso real):** un servicio externo lento, o
+  saturacion de la base de datos.
+- **Impacto para el usuario:** la solicitud si se completa (a diferencia
+  del Incidente 1), pero la experiencia es mala porque la respuesta tarda
+  mucho.
+- **Accion correctiva propuesta:** revisar el dashboard de latencia para
+  confirmar desde cuando subio; idealmente usar **trazas distribuidas**
+  (Punto 26) para saber exactamente en que componente se concentra el
+  retraso (app, base de datos o servicio externo), ya que la metrica sola
+  solo dice "algo esta lento", no *donde*. Segun la causa confirmada:
+  optimizar consultas/indices si es la base de datos, o agregar timeout y
+  circuit breaker si es un servicio externo lento.
+- **Alerta que deberia existir:** ya existe — la alerta **"Latencia elevada"**
+  creada en el Punto 27.
+
+**Incidente 3 (creacion de pedidos):**
+
+- **Posible causa:** aqui la ambiguedad es la leccion clave — un pico en
+  `orders_total` puede ser **algo bueno** (mas clientes comprando) o
+  **algo malo** (una inyeccion de solicitudes tratando de saturar la
+  aplicacion). La metrica sola no distingue cual es.
+- **Impacto para el usuario:** si es crecimiento legitimo, ninguno (o
+  positivo, mas actividad de negocio); si es abuso, podria degradar el
+  servicio para el resto de usuarios reales.
+- **Accion correctiva propuesta:** revisar si los pedidos vienen de
+  `customerId` variados (crecimiento legitimo) o de uno solo repetido
+  masivamente (posible abuso). Si es legitimo, confirmar que la
+  infraestructura escala bien; si es abuso, aplicar *rate limiting* por
+  cliente/IP.
+- **Alerta que deberia existir:** ninguna de las 3 alertas actuales cubre
+  este caso (todas son de fallos tecnicos). Se podria proponer una alerta
+  de **tasa anormal de creacion de pedidos** (ej.
+  `rate(orders_total[1m])` por encima de un umbral de negocio esperado),
+  para detectar picos sospechosos sin depender solo del juicio manual.
