@@ -456,3 +456,30 @@ CPU y memoria **no** responden ni disponibilidad ni experiencia de
 usuario directamente — son indicadores de salud interna de recursos
 (utiles para planear capacidad), no de si el servicio esta arriba o si el
 usuario esta contento con la respuesta.
+
+**Estrategia de observabilidad propuesta para los 5 servicios:**
+
+| Servicio | Metricas clave | Logs | Trazas |
+|---|---|---|---|
+| order-service | `up`, latencia, `orders_total`/`orders_failed_total`, exito/fallo **por dependencia saliente** (llamada a payment, a inventory, etc. por separado) | Solicitud recibida, pedido creado, fallo de una dependencia especifica | Traza completa del flujo de compra (es el punto de entrada) |
+| payment-service | `up`, latencia, `payments_success_total`/`payments_failed_total` | Intento de pago, respuesta de la pasarela externa, error de pago | Llamada a la pasarela de pago externa |
+| inventory-service | `up`, latencia, duracion de consultas a BD, metricas de pool de conexiones | Consulta/actualizacion de stock, conflictos de concurrencia | Llamadas a la base de datos |
+| notification-service | `up`, profundidad de cola / consumer lag, `notifications_sent_total`/`notifications_failed_total`, reintentos | Notificacion encolada, enviada, fallida | Flujo asincrono desde que se encola hasta que se envia |
+| shipping-service | `up`, latencia, `shipments_on_time_total`/`shipments_delayed_total` | Envio creado, actualizacion de estado, entrega confirmada | Integracion con transportadoras externas |
+
+**Alertas recomendadas:** servicio caido (`up == 0`) por servicio; tasa de
+errores 500 sostenida; latencia elevada sostenida; profundidad de cola de
+notificaciones creciendo sin bajar; tasa de pagos fallidos por encima de
+un umbral de negocio.
+
+**Dashboards requeridos:** uno por servicio (salud tecnica: disponibilidad,
+latencia, errores, recursos) y uno **transversal de negocio** que muestre
+el flujo completo de compra (pedidos creados → pagos exitosos →
+confirmaciones de inventario → notificaciones enviadas → envios a tiempo),
+para ver en un solo lugar donde se esta perdiendo conversion.
+
+**Indicadores de negocio:** pedidos creados, pagos exitosos/fallidos,
+notificaciones enviadas/fallidas, entregas a tiempo.
+
+**Indicadores tecnicos:** disponibilidad (`up`) por servicio, latencia,
+tasa de errores HTTP 500, uso de CPU/memoria, profundidad de cola.
