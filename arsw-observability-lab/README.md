@@ -411,3 +411,48 @@ Microservicios" (Punto 22):
 | Pedidos fallidos | Prometheus | `orders_failed_total` | Cuantas transacciones de negocio no se completaron | Si hay que revisar el flujo de checkout/pagos |
 | Memoria usada por JVM | Prometheus | `sum(jvm_memory_used_bytes{application="observability-demo"})` | Consumo de memoria y patrones de GC | Si hay fuga de memoria o si hay que ajustar el heap |
 | Uso de CPU del proceso | Prometheus | `process_cpu_usage{application="observability-demo"}` | Carga de CPU del proceso Java | Si hay que escalar horizontalmente o revisar codigo ineficiente |
+
+### Punto 30 — Actividad 3: observabilidad en arquitectura
+
+Escenario: plataforma de e-commerce con `order-service`, `payment-service`,
+`inventory-service`, `notification-service`, `shipping-service`.
+
+**¿Que senales permitirian detectar un problema en pagos?**
+No basta con latencia/errores HTTP 500/volumen de solicitudes (senales
+tecnicas genericas): un pago puede responder `200 OK` y aun asi fallar o
+quedar atascado con la pasarela externa. Hace falta una **metrica de
+negocio** especifica (`payments_success_total` / `payments_failed_total`,
+mismo patron que `orders_total`/`orders_failed_total`), y **trazas**, ya
+que `payment-service` casi seguro llama a una pasarela de pago externa —
+las trazas distinguen si la falla/lentitud es propia o de esa dependencia.
+
+**¿Que senales permitirian detectar lentitud en inventario?**
+Como `inventory-service` hace muchas consultas a base de datos (verificar
+stock, actualizar cantidades, posibles bloqueos por concurrencia), hacen
+falta: un timer/histograma custom alrededor de las llamadas a la base de
+datos, metricas de pool de conexiones (activas, tiempo de espera), y
+trazas para confirmar si el tiempo se va en la query, la logica de
+negocio o esperando una conexion libre.
+
+**¿Que senales permitirian saber si las notificaciones fallan?**
+Como las notificaciones son asincronas (cola de mensajes: Kafka,
+RabbitMQ, SQS), el fallo no se ve como un error HTTP inmediato sino como
+**acumulacion en la cola** (profundidad de cola / consumer lag). Tambien
+sirve una metrica de negocio (`notifications_sent_total` /
+`notifications_failed_total`) y un contador de reintentos.
+
+**¿Que metrica usaria para medir disponibilidad?**
+`up` (o su agregado: ¿estan arriba los servicios de la cadena critica del
+flujo de compra?). En el mundo real se expresa como % de uptime.
+
+**¿Que metrica usaria para medir experiencia del usuario?**
+Latencia percibida de punta a punta (desde que el usuario hace clic en
+"comprar" hasta que ve la confirmacion, atravesando los 5 microservicios),
+no la latencia tecnica de un solo servicio. Un concepto real para esto es
+el **Apdex score**, que clasifica cada solicitud como satisfactoria,
+tolerable o frustrante segun umbrales de tiempo de respuesta.
+
+CPU y memoria **no** responden ni disponibilidad ni experiencia de
+usuario directamente — son indicadores de salud interna de recursos
+(utiles para planear capacidad), no de si el servicio esta arriba o si el
+usuario esta contento con la respuesta.
