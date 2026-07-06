@@ -253,3 +253,47 @@ no llega a Loki por la limitacion de Promtail — solo se ve en la consola
 de `mvn spring-boot:run`.
 *Fuente: lectura del codigo fuente de `OrderController.java` (metodo
 `simulateLatency`).*
+
+#### Incidente 3: creacion de pedidos
+
+Se ejecuto `curl.exe -X POST http://localhost:8081/orders ...` varias veces
+seguidas.
+
+**Observaciones:**
+- **Panel de solicitudes HTTP:** aparece una linea para
+  `{method="POST", uri="/orders"}` con actividad al final de la grafica.
+  *Fuente: verificado directamente con
+  `curl http://localhost:8081/actuator/prometheus | grep 'method="POST"'`,
+  que muestra `http_server_requests_seconds_count{...method="POST",uri="/orders"} 14`.*
+- **Panel de pedidos creados:** subio de 1 a **14**. *Fuente: captura del
+  panel "Pedidos creados" en Grafana.*
+- **Logs de creacion de pedidos:** existen
+  (`logger.info("Pedido creado correctamente. orderId={}", orderId)` en
+  `OrderController.createOrder()`), pero no visibles en Loki por la misma
+  limitacion del Punto 15. *Fuente: codigo fuente.*
+
+**¿Que metrica evidencia actividad de negocio?**
+`orders_total` — a diferencia de `http_server_requests_seconds_count`
+(que es generica de cualquier endpoint HTTP), esta metrica fue creada a
+mano especificamente para contar un evento de negocio (un pedido
+creado), no una simple llamada tecnica.
+*Fuente: comparacion entre ambas metricas, ambas en 14, una tecnica y
+otra de negocio (ver Punto 11).*
+
+**¿Que log permite rastrear un pedido especifico?**
+El log de `createOrder()` incluye el `orderId` generado
+(`UUID.randomUUID()`), por lo que en teoria se podria buscar
+`orderId=ORD-xxxx` para rastrear un pedido puntual. En la practica, esto
+no es posible ahora mismo porque el log no llega a Loki (limitacion del
+Punto 15) — solo se ve en la consola.
+*Fuente: lectura del codigo fuente de `OrderController.java` (metodo
+`createOrder`), cruzado con la limitacion de Promtail.*
+
+**¿Que informacion adicional agregaria para mejorar trazabilidad?**
+Un **trace ID / correlation ID** propagado a traves de toda la solicitud
+(idealmente con OpenTelemetry, introducido conceptualmente en el Punto 25),
+para poder correlacionar un mismo pedido entre logs, metricas y, en una
+arquitectura con mas microservicios, entre distintos servicios. Tambien
+ayudaria loguear en formato estructurado (JSON) en vez de texto plano
+interpolado, para poder filtrar por campos como `orderId` o `customerId`
+directamente en Loki sin depender de busqueda de texto libre.
