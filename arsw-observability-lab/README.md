@@ -483,3 +483,144 @@ notificaciones enviadas/fallidas, entregas a tiempo.
 
 **Indicadores tecnicos:** disponibilidad (`up`) por servicio, latencia,
 tasa de errores HTTP 500, uso de CPU/memoria, profundidad de cola.
+
+### Punto 31 — Reto final: propuesta de observabilidad para RaceFlow
+
+Propuesta de observabilidad para el proyecto de curso real, **RaceFlow**
+(ARSW 2026-1, ECI), formalizada en una sesion aparte de ideacion y
+documentada aqui como entregable del reto final. La implementacion vive
+en el repositorio del proyecto RaceFlow, no en este laboratorio.
+
+#### 1. Decision sobre trazas (OpenTelemetry)
+
+**Si vale la pena, de forma acotada.** RaceFlow tiene un flujo critico que
+cruza tres servicios en secuencia: `API Gateway → Realtime Service →
+Redis → (evento) → Session Service + Metrics Service`. Sin trazas, si el
+ranking tarda mas de 1 segundo, no se sabe si el cuello de botella esta en
+el gateway, en el Realtime Service, o en la escritura a Redis.
+
+**Decision concreta:** instrumentar OpenTelemetry solo en **API Gateway,
+Realtime Service y Room Service** (el flujo critico de tiempo real). Auth,
+Session y Metrics quedan solo con metricas + logs, porque sus operaciones
+son CRUD estandar donde una traza no anade informacion sobre una metrica
+de latencia HTTP.
+
+**Implementacion:** OpenTelemetry Java Agent (cero cambios de codigo) +
+Tempo como backend de trazas + Grafana como visualizador.
+
+#### 2. Metricas de negocio por microservicio
+
+- **Auth Service:** `raceflow_auth_registrations_total` (counter),
+  `raceflow_auth_login_failures_total` (counter),
+  `raceflow_auth_active_tokens_gauge` (gauge).
+- **Room Service:** `raceflow_rooms_created_total` (counter),
+  `raceflow_rooms_active_gauge` (gauge),
+  `raceflow_rooms_join_attempts_total` (counter, label `result`).
+- **Realtime/Ranking Service (el mas rico en metricas):**
+  `raceflow_websocket_connections_active` (gauge),
+  `raceflow_positions_received_total` (counter),
+  `raceflow_positions_rejected_total` (counter, label `reason`),
+  `raceflow_ranking_updates_total` (counter),
+  `raceflow_ranking_update_duration_seconds` (histogram, **SLO p99 ≤ 1s**),
+  `raceflow_reactions_sent_total` (counter),
+  `raceflow_redis_write_duration_seconds` (histogram).
+- **Session Service:** `raceflow_sessions_persisted_total` (counter),
+  `raceflow_sessions_persistence_lag_seconds` (histogram, objetivo < 2s).
+- **Metrics Service:** `raceflow_kpi_computation_duration_seconds`
+  (histogram), `raceflow_events_consumed_total` (counter, label
+  `event_type`), `raceflow_events_consumption_lag_total` (counter).
+
+#### 3. Implementacion tecnica en cada servicio Spring Boot
+
+Cada microservicio agrega `spring-boot-starter-actuator` +
+`micrometer-registry-prometheus`, expone `/actuator/prometheus` con el tag
+`application: ${spring.application.name}`, registra sus counters/timers de
+negocio via `MeterRegistry` (mismo patron que `OrderController` en este
+laboratorio), y agrega logging a archivo con `logback-spring.xml` +
+`logstash-logback-encoder` (JSON estructurado) — esto es **obligatorio**
+para que Promtail pueda leerlos, a diferencia de este laboratorio de
+practica donde se documento como limitacion aceptada.
+
+#### 4. Docker Compose de observabilidad
+
+Stack extendido respecto al de este laboratorio: Prometheus 2.51 +
+Grafana 10.4 + Loki 2.9 + Promtail 2.9 + **Tempo 2.4** (nuevo, para
+trazas). Prometheus hace scrape de los 6 servicios via
+`host.docker.internal:PUERTO/actuator/prometheus`. Promtail monta un
+directorio de logs por microservicio (`./raceflow-<servicio>/logs`) en vez
+del generico `/var/log` del host, con un pipeline que parsea JSON
+(`level`, `service`, `message`, `timestamp`) para labels estructurados en
+Loki.
+
+#### 5. Dashboard — 9 paneles propuestos
+
+Salas activas ahora, atletas conectados (WebSocket), posiciones/seg en
+tiempo real, latencia p99 del ciclo de ranking (SLO), tasa de posiciones
+rechazadas, latencia p99 HTTP por servicio, errores HTTP 5xx, lag de
+persistencia de sesiones, eventos consumidos por tipo.
+
+#### 6. Incidente simulado: degradacion silenciosa del ranking
+
+Elegido por ser especifico del dominio (ataca el atributo de calidad de
+Consistencia bajo concurrencia) y no obvio: el servicio sigue
+respondiendo, sin errores 5xx, pero la experiencia se rompe. Se simula
+inyectando `Thread.sleep(800)` en `RoomStateClient.updateRanking()`.
+
+- **Metrica que lo detecta:** `raceflow_ranking_update_duration_seconds`
+  p99 supera 1s (el SLO).
+- **Log que lo explica:** `"RoomStateClient.updateRanking took Xms"` con
+  valores > 500ms.
+- **Causa raiz:** latencia en la escritura atomica a Redis (ZADD bajo
+  contencion).
+- **Accion correctiva:** debouncing en la frecuencia de escritura a Redis,
+  o agrupar operaciones con pipeline de Redis.
+
+#### 7. Las 3 alertas propuestas
+
+1. **RaceFlowServiceDown:** `up{job=~"raceflow-.*"} == 0` por 1m (critical).
+2. **RaceFlowHighErrorRate:** tasa de errores 5xx > 5% por 2m (warning).
+3. **RaceFlowRankingLatencyHigh:** p99 de
+   `raceflow_ranking_update_duration_seconds` > 1.0s por 3m (critical) —
+   esta es la alerta de negocio mas importante, protege el SLO central del
+   producto.
+
+#### 8. Recomendaciones para produccion (especificas de RaceFlow en Azure)
+
+1. Prometheus no puede hacer scrape directo de Azure App Service (no
+   expone puertos arbitrarios) → usar **Azure Monitor + Managed
+   Prometheus**.
+2. Los logs de App Service no se pueden montar en Promtail → redirigir a
+   **Azure Log Analytics** via Diagnostic Settings; las consultas LogQL se
+   traducen a KQL.
+3. Con multiples replicas del Realtime Service, `raceflow_websocket_
+   connections_active` debe agregarse con `sum()` en Prometheus para no
+   contar doble.
+4. Azure Cache for Redis tier C0 (256MB, 1 conexion) se satura con ~100
+   escrituras/seg (10 salas x 10 atletas); la alerta de latencia de
+   ranking debe estar activa desde el dia 1, con plan de escalar a C1
+   Standard.
+5. Los WebSocket no sobreviven a un redeploy sin **ARR Affinity** (sticky
+   sessions) configurado en el App Service del Realtime Service.
+
+#### Resumen tecnico (stack completo)
+
+```
+PROYECTO: RaceFlow (ARSW 2026-1, ECI)
+STACK: 5 microservicios Java 21 + Spring Boot
+       API Gateway (8080), Auth Service (8081), Room Service (8082)
+       Realtime/Ranking Service (8083, el mas critico)
+       Session Service (8084), Metrics Service (8085)
+       Redis (estado de ranking), RabbitMQ (eventos asincronos)
+
+OBSERVABILIDAD: Prometheus 2.51 + Grafana 10.4 + Loki 2.9 + Promtail 2.9
+                + Tempo 2.4 (trazas via OTel Java Agent en Gateway,
+                Room y Realtime)
+
+GOTCHAS DEL LABORATORIO DE PRACTICA APLICADOS DESDE EL INICIO:
+  - Logs a archivo (no consola) para que Promtail los vea
+  - Verificar el nombre real expuesto de cada metrica en
+    /actuator/prometheus (por reglas de OpenMetrics, como con
+    orders_created_total -> orders_total en este laboratorio)
+  - En produccion Azure: Prometheus -> Azure Monitor, Loki -> Log Analytics
+  - Sticky sessions obligatorio para WebSocket en Realtime Service
+```
