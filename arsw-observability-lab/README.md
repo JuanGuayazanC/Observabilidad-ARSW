@@ -332,3 +332,29 @@ sum(rate(http_server_requests_seconds_sum[1m])) / sum(rate(http_server_requests_
 ambas por debajo de sus umbrales, confirmando que el estado `Pending`
 era transitorio y se esperaba que volviera a `Normal` en la siguiente
 evaluacion — comportamiento correcto del `pending period` configurado.
+
+### Punto 28 — Actividad 1: diagnostico de observabilidad
+
+Diagnostico completo usando el Incidente 1 (aumento de errores) como caso:
+
+- **Incidente observado:** aumento de errores HTTP 500 en
+  `/orders/simulate-error`.
+- **Metrica afectada:** `sum(rate(http_server_requests_seconds_count{status="500"}[1m]))`
+  y `orders_failed_total`.
+- **Logs relacionados:** `logger.error("Error simulado...")` — solo visible
+  en consola, no en Loki (limitacion del Punto 15).
+- **Endpoint involucrado:** `/orders/simulate-error`.
+- **Posible causa (en un caso real, no simulado):** una excepcion no
+  controlada por un caso borde que no fue validado (ej. un campo nulo o
+  un valor inesperado que el codigo no contemplo).
+- **Impacto para el usuario:** la solicitud de crear un pedido no se
+  completa; el usuario recibe un error 500 en vez de la confirmacion de
+  su pedido.
+- **Accion correctiva propuesta:** (1) investigar el stack trace del log
+  de error para hallar la causa exacta, (2) corregir el bug agregando la
+  validacion que falta, (3) desplegar el fix, (4) confirmar con la misma
+  metrica (`http_server_requests_seconds_count{status="500"}`) que el
+  error desaparece y vuelve a 0 sostenido — no basta con asumir que se
+  arreglo, la metrica lo confirma objetivamente.
+- **Alerta que deberia existir:** ya existe — la alerta **"Errores HTTP 500"**
+  creada en el Punto 27.
