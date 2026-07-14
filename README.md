@@ -224,10 +224,8 @@ CPU/memory usage, queue depth.
 
 Proposal for the real course project **RaceFlow** (ARSW 2026-1, ECI),
 formalized in a separate ideation session and recorded here as the final
-challenge deliverable. The **application code** (Micrometer counters,
-timers and gauges wired into each service) lives in the RaceFlow
-repositories; the **monitoring stack that scrapes and visualizes it**
-is implemented directly in this repo, described next.
+challenge deliverable. The implementation lives in the RaceFlow
+repository, not in this lab.
 
 **Tracing decision.** Worth it, but scoped: RaceFlow's critical path
 (`API Gateway → Realtime Service → Redis → Session/Metrics Service`) can't
@@ -256,104 +254,20 @@ don't benefit from tracing beyond an HTTP latency metric.
   `raceflow_events_consumed_total` (label `event_type`),
   `raceflow_events_consumption_lag_total`.
 
-**Implementation (application side, in the RaceFlow repositories):** each
-of the 6 services adds Actuator + Micrometer Prometheus and registers its
-business counters/timers via `MeterRegistry` (same pattern as
-`OrderController` here) — one `*Metrics` component per service
-(`AuthMetrics`, `RealtimeMetrics`, `RoomMetrics`, `SessionMetrics`,
-`MetricsServiceMetrics`), all Javadoc'd. File-based JSON logging for
-Promtail is the one item from the original proposal not yet done (see
-"Not yet implemented" below).
+**Implementation:** each service adds Actuator + Micrometer Prometheus,
+registers its business counters/timers via `MeterRegistry` (same pattern
+as `OrderController` here), and — unlike this practice lab — **must** log
+to file (`logback-spring.xml` + `logstash-logback-encoder`, JSON) so
+Promtail can actually read them.
 
-**Stack:** Prometheus + Grafana + Loki + Promtail, scraping all 6
-RaceFlow services in addition to the practice-lab app. **Tempo (for
-traces)** stays a proposal only — not implemented, see below.
+**Stack:** Prometheus 2.51 + Grafana 10.4 + Loki 2.9 + Promtail 2.9 +
+**Tempo 2.4** (new, for traces), scraping all 6 services, with Promtail
+mounted per-service log folders instead of the generic host `/var/log`.
 
 **Dashboard (9 panels):** active rooms, connected athletes (WebSocket),
 positions/sec, ranking-cycle p99 latency (SLO), rejected-position rate,
-per-service HTTP average latency, HTTP 5xx errors, session-persistence
-lag, events consumed by type.
-
-### Monitoring-stack implementation (this repo)
-
-Unlike the rest of this lab, the RaceFlow monitoring configuration is
-**wired into the same `docker-compose.yml` stack** used above, so
-`docker compose up` scrapes both the practice-lab app *and* the 6 live
-RaceFlow services deployed on Azure App Service:
-
-- `prometheus/prometheus.yml` — 6 new scrape jobs (`raceflow-auth-svc`,
-  `raceflow-realtime-svc`, `raceflow-gateway`, `raceflow-room-svc`,
-  `raceflow-session-svc`, `raceflow-metrics-svc`), each `scheme: https`
-  pointed straight at the service's real Azure hostname
-  (`*.mexicocentral-01.azurewebsites.net`) and `/actuator/prometheus`.
-- `prometheus/raceflow-alerts.yml` — the 3 alerts below as an actual
-  Prometheus rule file, loaded via `rule_files` (loaded and evaluating,
-  confirmed via `/api/v1/rules` below — no Alertmanager is configured in
-  this lab, same scope as the practice-lab alerts, which were created
-  directly in Grafana instead).
-- `grafana/provisioning/` + `grafana/dashboards/raceflow-observabilidad.json`
-  — datasources (Prometheus, Loki) and the 9-panel dashboard
-  auto-provisioned on Grafana startup, instead of built by hand through
-  the UI like the practice-lab dashboard.
-
-**Verification evidence (real, captured against the live Azure
-deployment, not a mockup).** `docker compose up -d prometheus grafana
-loki`, then:
-
-```
-$ curl https://raceflow-auth-svc-etcwe5asgrhtfqad.mexicocentral-01.azurewebsites.net/actuator/prometheus | grep raceflow_auth
-raceflow_auth_active_tokens{application="raceflow-auth-service",...} 0.0
-raceflow_auth_login_failures_total{application="raceflow-auth-service",...} 0.0
-raceflow_auth_registrations_total{application="raceflow-auth-service",...} 0.0
-```
-
-All 6 business-metric families confirmed live and correctly named on
-their respective services: `raceflow_websocket_connections_active`,
-`raceflow_positions_received_total`, `raceflow_ranking_update_duration_seconds`
-(realtime); `raceflow_rooms_active`, `raceflow_rooms_join_attempts_total`
-(room); `raceflow_sessions_persistence_lag_seconds` (session);
-`raceflow_events_consumed_total`, `raceflow_kpi_computation_duration_seconds`
-(metrics); the 3 above (auth).
-
-Prometheus target health, via `/api/v1/targets`:
-
-```
-raceflow-auth-svc      -> up
-raceflow-gateway       -> up
-raceflow-metrics-svc   -> up
-raceflow-realtime-svc  -> up
-raceflow-room-svc      -> up
-raceflow-session-svc   -> up
-```
-
-Alert rules loaded and healthy, via `/api/v1/rules`:
-
-```
-group: raceflow-alerts
- - RaceFlowServiceDown        ok
- - RaceFlowHighErrorRate      ok
- - RaceFlowRankingLatencyHigh ok
-```
-
-Dashboard queries return real data, e.g. `raceflow_rooms_active` ->
-`0` (no active room at query time — correct, since no one was training
-live) and `up{job=~"raceflow-.*"}` -> `1` for all 6 jobs.
-
-**Naming gotcha #2 (same lesson as `orders_total`, different service).**
-The original proposal listed `raceflow_auth_active_tokens_gauge` and
-`raceflow_rooms_active_gauge`, but Micrometer's Prometheus registry
-strips the `_gauge`/`_total`-style type suffix from the *name you pass
-to `Gauge.builder(...)`* the same way it stripped `_created` in
-`orders_created_total` earlier in this lab — the metrics actually exist
-as `raceflow_auth_active_tokens` and `raceflow_rooms_active` (confirmed
-above). The dashboard and alert queries in this repo use the real
-exposed names, not the ones in the original proposal text.
-
-**Not yet implemented (scope left for the RaceFlow repos, not this
-lab):** file-based JSON logging (so Promtail could read RaceFlow's
-logs the way it can't read this lab's), OpenTelemetry tracing (Tempo),
-and the "silent ranking degradation" incident simulation described
-below — none of these have runtime code changes yet.
+per-service HTTP p99 latency, HTTP 5xx errors, session-persistence lag,
+events consumed by type.
 
 **Simulated incident — silent ranking degradation.** Chosen because it's
 domain-specific (attacks the Consistency-under-concurrency quality
@@ -372,16 +286,8 @@ the write frequency or batching via a Redis pipeline.
    the most important business alert, protecting the product's core SLO.
 
 **Production recommendations (Azure-specific):**
-1. ~~Prometheus can't scrape Azure App Service directly~~ — **corrected
-   after implementation**: it can, over plain HTTPS, since
-   `/actuator/prometheus` is a public endpoint on each App Service (see
-   evidence above). The real production concern is different: this repo's
-   Prometheus only runs when someone's laptop runs `docker compose up`,
-   so there's no continuous scraping/alerting/history when nobody is
-   watching. For that, **Azure Monitor + Managed Prometheus** (or a
-   Prometheus instance running as its own always-on Azure resource) is
-   still the right call — not because scraping is blocked, but because
-   the monitoring stack itself needs to be always-on infrastructure.
+1. Prometheus can't scrape Azure App Service directly → use **Azure
+   Monitor + Managed Prometheus**.
 2. App Service logs can't be mounted into Promtail → route to **Azure
    Log Analytics** via Diagnostic Settings; LogQL becomes KQL.
 3. With multiple Realtime Service replicas, `raceflow_websocket_
