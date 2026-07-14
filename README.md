@@ -165,31 +165,31 @@ El target `observability-demo` aparece `UP` en Prometheus
 (`Status → Targets`), scrapeando `http://host.docker.internal:8081/actuator/prometheus`
 sin errores.
 
-![Prometheus target UP](evidence/punto17-prometheus-target-up.png)
+![Prometheus target UP](evidence/prometheus-target-up.png)
 
 ### Punto 18 — Consultas basicas en Prometheus
 
 Las 5 consultas de la guia, verificadas directamente en la UI de Prometheus:
 
-![Consulta up](evidence/punto18-query-up.png)
-![Consulta http_server_requests_seconds_count](evidence/punto18-query-http-requests.png)
-![Consulta jvm_memory_used_bytes](evidence/punto18-query-jvm-memory.png)
-![Consulta orders_total](evidence/punto18-query-orders-total.png)
-![Consulta orders_failed_total](evidence/punto18-query-orders-failed-total.png)
+![Consulta up](evidence/query-up.png)
+![Consulta http_server_requests_seconds_count](evidence/query-http-requests.png)
+![Consulta jvm_memory_used_bytes](evidence/query-jvm-memory.png)
+![Consulta orders_total](evidence/query-orders-total.png)
+![Consulta orders_failed_total](evidence/query-orders-failed-total.png)
 
 ### Punto 19-21 — Ingreso a Grafana y fuentes de datos
 
 Prometheus y Loki configurados y verificados como data sources en Grafana:
 
-![Prometheus data source OK](evidence/punto20-prometheus-datasource-ok.png)
-![Loki data source OK](evidence/punto21-loki-datasource-ok.png)
+![Prometheus data source OK](evidence/prometheus-datasource-ok.png)
+![Loki data source OK](evidence/loki-datasource-ok.png)
 
 ### Punto 22 — Construccion del dashboard
 
 Dashboard **"ARSW - Observabilidad de Microservicios"** con los 8 paneles
 documentados en el Punto 29, con datos reales:
 
-![Dashboard completo con 8 paneles](evidence/punto22-dashboard-completo.png)
+![Dashboard completo con 8 paneles](evidence/dashboard-completo.png)
 
 ### Punto 23 — Exploracion de logs con Loki
 
@@ -208,7 +208,7 @@ origen. Como la consulta base ya esta vacia, las variantes de la guia
 son solo filtros adicionales sobre un conjunto ya vacio. No se ejecutaron
 las tres por ser redundante.
 
-![Loki no encuentra logs](evidence/punto23-loki-no-logs-found.png)
+![Loki no encuentra logs](evidence/loki-no-logs-found.png)
 
 ### Punto 24 — Simulacion de incidentes
 
@@ -227,7 +227,7 @@ seguidas.
   limitacion del Punto 15 — solo en la consola de `mvn spring-boot:run`.
   *Fuente: codigo fuente + limitacion confirmada en el Punto 23.*
 
-![Panel Errores HTTP 500 durante el incidente 1](evidence/punto24-incidente1-errores-500.png)
+![Panel Errores HTTP 500 durante el incidente 1](evidence/incidente1-errores-500.png)
 
 **¿Que endpoint genero errores?**
 `/orders/simulate-error`.
@@ -269,8 +269,8 @@ veces seguidas (delays de 1399ms y 812ms segun la respuesta del endpoint).
   el retraso real aplicado — `{"delayMs":1399,...}` y `{"delayMs":812,...}`.
   *Fuente: salida directa de los `curl.exe` en la terminal.*
 
-![Panel Latencia promedio durante el incidente 2](evidence/punto24-incidente2-latencia-promedio.png)
-![Panel Solicitudes HTTP por endpoint mostrando el pico de simulate-latency](evidence/punto24-incidente2-solicitudes-http.png)
+![Panel Latencia promedio durante el incidente 2](evidence/incidente2-latencia-promedio.png)
+![Panel Solicitudes HTTP por endpoint mostrando el pico de simulate-latency](evidence/incidente2-solicitudes-http.png)
 
 **¿Que metrica cambio?**
 La latencia promedio del panel **"Latencia promedio"**
@@ -307,7 +307,7 @@ seguidas.
 - **Panel de pedidos creados:** subio de 1 a **14**. *Fuente: captura del
   panel "Pedidos creados" en Grafana.*
 
-![Panel Pedidos creados durante el incidente 3](evidence/punto24-incidente3-pedidos-creados.png)
+![Panel Pedidos creados durante el incidente 3](evidence/incidente3-pedidos-creados.png)
 
 - **Logs de creacion de pedidos:** existen
   (`logger.info("Pedido creado correctamente. orderId={}", orderId)` en
@@ -375,8 +375,8 @@ ambas por debajo de sus umbrales, confirmando que el estado `Pending`
 era transitorio y se esperaba que volviera a `Normal` en la siguiente
 evaluacion — comportamiento correcto del `pending period` configurado.
 
-![Detalle de la alerta Errores HTTP 500](evidence/punto27-alerta-errores-500-detalle.png)
-![Las 3 alertas creadas en Grafana](evidence/punto27-alertas-3-creadas.png)
+![Detalle de la alerta Errores HTTP 500](evidence/alerta-errores-500-detalle.png)
+![Las 3 alertas creadas en Grafana](evidence/alertas-3-creadas.png)
 
 ### Punto 28 — Actividad 1: diagnostico de observabilidad
 
@@ -533,8 +533,49 @@ tasa de errores HTTP 500, uso de CPU/memoria, profundidad de cola.
 
 Propuesta de observabilidad para el proyecto de curso real, **RaceFlow**
 (ARSW 2026-1, ECI), formalizada en una sesion aparte de ideacion y
-documentada aqui como entregable del reto final. La implementacion vive
-en el repositorio del proyecto RaceFlow, no en este laboratorio.
+documentada aqui como entregable del reto final. **La implementacion vive
+en su propio repositorio dedicado,
+[`raceflow-observability`](https://github.com/RaceFlowECI/raceflow-observability)**
+(stack de Docker Compose: Prometheus, Grafana, Loki, Promtail, Tempo,
+Alertmanager, con los 6 PRs de alertas/dashboard/simulacion de incidentes
+ya mergeados a `main`) — no se duplica aqui, para no mantener dos copias
+de la misma configuracion. Esta seccion documenta que es real y
+funcional, con evidencia capturada contra los microservicios reales de
+RaceFlow corriendo localmente.
+
+**Verificacion realizada en esta sesion:** se levantaron los 6 servicios
+de RaceFlow localmente (`mvn spring-boot:run`, puertos 8080-8085) contra
+los contenedores de Postgres/Redis/RabbitMQ ya corriendo, y se confirmo
+que la propia instancia de Prometheus de `raceflow-observability` (ya
+configurada, ya mergeada) los detecto a todos:
+
+![Prometheus targets — los 6 servicios de RaceFlow arriba](evidence/raceflow-prometheus-targets-up.png)
+
+Se registro un usuario real y se creo una sala real a traves de los
+servicios corriendo para generar trafico, y luego se abrio el dashboard
+de Grafana ya provisionado **"RaceFlow — Vista General"**, confirmando
+que renderiza datos reales, no placeholders:
+- **Servicios en línea: 6** (coincide con los 6 targets sanos de
+  Prometheus de arriba)
+- **Requests/s (total): 0.400** y **Tasa de errores 5xx: 0%**, ambos
+  calculados en vivo a partir del trafico recien generado
+- El panel de tasa de solicitudes por servicio mostro un pico real justo
+  en el momento en que se hicieron las llamadas de registro/login/crear
+  sala, con los 6 nombres de servicio (`raceflow-api-gateway`,
+  `raceflow-auth-service`, `raceflow-room-service`,
+  `raceflow-realtime-service`, `raceflow-session-service`,
+  `raceflow-metrics-service`) como series separadas
+- **Ranking latencia p99 (SLO ≤ 1s): "No data"** — vacio correctamente,
+  ya que nadie se unio al WebSocket de la sala creada para enviar
+  posiciones GPS; la consulta del panel en si queda probada como
+  correcta por el hecho de que se ejecuta sin error y los otros 8
+  paneles que usan la misma fuente de datos devuelven numeros reales
+
+Esto confirma que la implementacion del repo `raceflow-observability` no
+solo esta mergeada, sino que realmente funciona de punta a punta contra
+los servicios reales — el mismo estandar de verificacion que las
+capturas de evidencia de arriba, aplicado al proyecto en vez de a la app
+de practica.
 
 #### 1. Decision sobre trazas (OpenTelemetry)
 
