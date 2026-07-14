@@ -80,30 +80,30 @@ generic host `/var/log`.
 Prometheus target `observability-demo` is `UP`, scraping
 `http://host.docker.internal:8081/actuator/prometheus` without errors:
 
-![Prometheus target UP](evidence/punto17-prometheus-target-up.png)
+![Prometheus target UP](evidence/prometheus-target-up.png)
 
 The 5 basic PromQL queries from the guide, run directly in Prometheus:
 
-![up](evidence/punto18-query-up.png)
-![http_server_requests_seconds_count](evidence/punto18-query-http-requests.png)
-![jvm_memory_used_bytes](evidence/punto18-query-jvm-memory.png)
-![orders_total](evidence/punto18-query-orders-total.png)
-![orders_failed_total](evidence/punto18-query-orders-failed-total.png)
+![up](evidence/query-up.png)
+![http_server_requests_seconds_count](evidence/query-http-requests.png)
+![jvm_memory_used_bytes](evidence/query-jvm-memory.png)
+![orders_total](evidence/query-orders-total.png)
+![orders_failed_total](evidence/query-orders-failed-total.png)
 
 Prometheus and Loki configured and verified as Grafana data sources:
 
-![Prometheus data source OK](evidence/punto20-prometheus-datasource-ok.png)
-![Loki data source OK](evidence/punto21-loki-datasource-ok.png)
+![Prometheus data source OK](evidence/prometheus-datasource-ok.png)
+![Loki data source OK](evidence/loki-datasource-ok.png)
 
 Dashboard **"ARSW - Observabilidad de Microservicios"** with all 8 panels
 (see table below) and real data:
 
-![Full 8-panel dashboard](evidence/punto22-dashboard-completo.png)
+![Full 8-panel dashboard](evidence/dashboard-completo.png)
 
 Practical confirmation of the Promtail limitation — `{job="docker"}` in
 Grafana Explore returns no results:
 
-![Loki finds no logs](evidence/punto23-loki-no-logs-found.png)
+![Loki finds no logs](evidence/loki-no-logs-found.png)
 
 ## Simulated incidents
 
@@ -119,10 +119,10 @@ never reach Loki (see limitation above).
 
 Evidence:
 
-![Errors HTTP 500 panel during incident 1](evidence/punto24-incidente1-errores-500.png)
-![Average latency panel during incident 2](evidence/punto24-incidente2-latencia-promedio.png)
-![HTTP requests per endpoint showing the simulate-latency spike](evidence/punto24-incidente2-solicitudes-http.png)
-![Orders created panel during incident 3](evidence/punto24-incidente3-pedidos-creados.png)
+![Errors HTTP 500 panel during incident 1](evidence/incidente1-errores-500.png)
+![Average latency panel during incident 2](evidence/incidente2-latencia-promedio.png)
+![HTTP requests per endpoint showing the simulate-latency spike](evidence/incidente2-solicitudes-http.png)
+![Orders created panel during incident 3](evidence/incidente3-pedidos-creados.png)
 
 Traceability note (incident 3): the `createOrder()` log includes the
 generated `orderId`, so in principle a specific order could be traced by
@@ -155,8 +155,8 @@ confirmed both conditions were already back below threshold
 (`errors=0`, `latency=0.127`), so the state was transient and expected to
 settle to `Normal` — correct behavior for the configured pending period.
 
-![Errors HTTP 500 alert detail](evidence/punto27-alerta-errores-500-detalle.png)
-![All 3 alerts created in Grafana](evidence/punto27-alertas-3-creadas.png)
+![Errors HTTP 500 alert detail](evidence/alerta-errores-500-detalle.png)
+![All 3 alerts created in Grafana](evidence/alertas-3-creadas.png)
 
 ## Dashboard design
 
@@ -239,7 +239,7 @@ already-running Postgres/Redis/RabbitMQ containers, confirmed
 `raceflow-observability`'s own Prometheus instance (already configured,
 already merged) picked them all up:
 
-![Prometheus targets — all 6 RaceFlow services up](evidence/punto28-raceflow-prometheus-targets-up.png)
+![Prometheus targets — all 6 RaceFlow services up](evidence/raceflow-prometheus-targets-up.png)
 
 Registered a real user and created a real room through the running
 services to generate traffic, then opened the already-provisioned
@@ -262,8 +262,8 @@ renders real data, not placeholders:
 
 This confirms the `raceflow-observability` repo's implementation is not
 just merged, but actually functions end-to-end against the real
-services — same verification standard as `evidence/punto17` through
-`punto27` above, applied to the project instead of the practice app.
+services — same verification standard as the evidence screenshots
+above, applied to the project instead of the practice app.
 
 **Tracing decision.** Worth it, but scoped: RaceFlow's critical path
 (`API Gateway → Realtime Service → Redis → Session/Metrics Service`) can't
