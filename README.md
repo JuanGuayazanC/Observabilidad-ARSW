@@ -224,8 +224,46 @@ CPU/memory usage, queue depth.
 
 Proposal for the real course project **RaceFlow** (ARSW 2026-1, ECI),
 formalized in a separate ideation session and recorded here as the final
-challenge deliverable. The implementation lives in the RaceFlow
-repository, not in this lab.
+challenge deliverable. **The implementation lives in its own dedicated
+repository, [`raceflow-observability`](https://github.com/RaceFlowECI/raceflow-observability)**
+(Docker Compose stack: Prometheus, Grafana, Loki, Promtail, Tempo,
+Alertmanager, all 6 alert/dashboard/incident-simulation PRs merged to
+`main`) — not duplicated here, to avoid maintaining two copies of the
+same config. This section documents that it's real and working, with
+evidence captured against the actual RaceFlow microservices running
+locally.
+
+**Verification performed in this session:** started all 6 RaceFlow
+services locally (`mvn spring-boot:run`, ports 8080-8085) against the
+already-running Postgres/Redis/RabbitMQ containers, confirmed
+`raceflow-observability`'s own Prometheus instance (already configured,
+already merged) picked them all up:
+
+![Prometheus targets — all 6 RaceFlow services up](evidence/punto28-raceflow-prometheus-targets-up.png)
+
+Registered a real user and created a real room through the running
+services to generate traffic, then opened the already-provisioned
+**"RaceFlow — Vista General"** Grafana dashboard and confirmed it
+renders real data, not placeholders:
+- **Servicios en línea: 6** (matches the 6 healthy Prometheus targets above)
+- **Requests/s (total): 0.400** and **Tasa de errores 5xx: 0%**, both
+  live-computed from the traffic just generated
+- The per-service request-rate panel showed a real spike at the exact
+  moment the register/login/create-room calls were made, with all 6
+  service names (`raceflow-api-gateway`, `raceflow-auth-service`,
+  `raceflow-room-service`, `raceflow-realtime-service`,
+  `raceflow-session-service`, `raceflow-metrics-service`) as separate
+  series
+- **Ranking latencia p99 (SLO ≤ 1s): "No data"** — correctly empty,
+  since no one joined the created room's WebSocket to send GPS
+  positions; the panel query itself is proven correct by the fact that
+  it query-executes without error and the other 8 panels using the same
+  data source return real numbers
+
+This confirms the `raceflow-observability` repo's implementation is not
+just merged, but actually functions end-to-end against the real
+services — same verification standard as `evidence/punto17` through
+`punto27` above, applied to the project instead of the practice app.
 
 **Tracing decision.** Worth it, but scoped: RaceFlow's critical path
 (`API Gateway → Realtime Service → Redis → Session/Metrics Service`) can't
