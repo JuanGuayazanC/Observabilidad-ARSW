@@ -4,6 +4,47 @@ Laboratorio de la asignatura Arquitecturas de Software: instrumentacion de una
 app Spring Boot con Actuator y Micrometer, recoleccion de metricas con
 Prometheus, centralizacion de logs con Loki y visualizacion con Grafana.
 
+## Autor
+
+JUAN SEBASTIÁN GUAYAZÁN CLAVIJO  
+Arquitecturas de Software (ISIS ARSW - 101)  
+Decanatura de Ingeniería de Sistemas  
+Ingeniería de Sistemas  
+Escuela Colombiana de Ingeniería Julio Garavito  
+2026-i
+
+## Cómo ejecutar
+
+### Requisitos previos
+
+- Docker y Docker Compose
+- JDK 21 y Maven
+
+### 1. Levantar el stack de observabilidad
+
+```bash
+docker-compose up -d
+```
+
+Esto levanta Prometheus (`localhost:9090`), Grafana (`localhost:3000`, usuario/contraseña `admin`/`admin`), Loki (`localhost:3100`) y Promtail.
+
+### 2. Correr la aplicación instrumentada
+
+```bash
+cd app/observability-demo
+mvn spring-boot:run
+```
+
+La app queda escuchando en `localhost:8081`. Verifica que esté arriba con:
+
+```bash
+curl http://localhost:8081/actuator/health
+```
+
+### 3. Generar tráfico y explorar
+
+Usa los comandos `curl` del [Ejercicio 1](#ejercicio-1-app-spring-boot-instrumentada) más abajo para crear pedidos, y luego revisa `http://localhost:8081/actuator/prometheus` para ver las métricas crudas, la página de Targets de Prometheus para el estado del scraping, y Grafana para los dashboards.
+
 ## Ejercicio 1: App Spring Boot instrumentada
 
 ### Punto 6 — Estructura del proyecto
