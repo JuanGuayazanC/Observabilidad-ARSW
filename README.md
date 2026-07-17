@@ -13,6 +13,16 @@ Ingeniería de Sistemas
 Escuela Colombiana de Ingeniería Julio Garavito  
 2026-i
 
+## Estructura del proyecto
+
+```
+/docker-compose.yml       Stack de Prometheus, Grafana, Loki y Promtail
+/prometheus/              Configuracion de scraping de Prometheus
+/loki/                    Configuracion de Loki
+/promtail/                Configuracion de Promtail
+/app/observability-demo/  App Spring Boot instrumentada (lo que se observa)
+```
+
 ## Cómo ejecutar
 
 ### Requisitos previos
