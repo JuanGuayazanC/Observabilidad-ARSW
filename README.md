@@ -30,7 +30,15 @@ Escuela Colombiana de Ingeniería Julio Garavito
 - Docker y Docker Compose
 - JDK 21 y Maven
 
-### 1. Levantar el stack de observabilidad
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/JuanGuayazanC/Observabilidad-ARSW.git
+cd Observabilidad-ARSW
+git checkout develop-es
+```
+
+### 2. Levantar el stack de observabilidad
 
 ```bash
 docker-compose up -d
@@ -38,7 +46,7 @@ docker-compose up -d
 
 Esto levanta Prometheus (`localhost:9090`), Grafana (`localhost:3000`, usuario/contraseña `admin`/`admin`), Loki (`localhost:3100`) y Promtail.
 
-### 2. Correr la aplicación instrumentada
+### 3. Correr la aplicación instrumentada
 
 ```bash
 cd app/observability-demo
@@ -51,7 +59,7 @@ La app queda escuchando en `localhost:8081`. Verifica que esté arriba con:
 curl http://localhost:8081/actuator/health
 ```
 
-### 3. Generar tráfico y explorar
+### 4. Generar tráfico y explorar
 
 Usa los comandos `curl` del [Ejercicio 1](#ejercicio-1-app-spring-boot-instrumentada) más abajo para crear pedidos, y luego revisa `http://localhost:8081/actuator/prometheus` para ver las métricas crudas, la página de Targets de Prometheus para el estado del scraping, y Grafana para los dashboards.
 
